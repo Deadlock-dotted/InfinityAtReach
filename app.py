@@ -7,7 +7,7 @@ import pypyodbc
 app = Flask(__name__)
 app.static_folder = 'static'
 
-
+connection = pypyodbc.connect('Driver={SQL Server};Server=REM-HMB0GG3;Database=DEMO;')
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -27,7 +27,6 @@ def get_bot_response():
 
 @app.route("/database")
 def database():
-    connection = pypyodbc.connect('Driver={SQL Server};Server=REM-HMB0GG3;Database=DEMO;')
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM demotable")
     print(cursor)
@@ -42,6 +41,22 @@ def database():
 @app.route("database")
 def getuserinformation():
     return str('hi')
+
+@app.route("FindSimilarCustomers")
+def FindSimilarCustomers(customerstatus, salaried, covertype, recommendationstrength):
+    cursor = connection.cursor("exec FindSimilarCustomersFromHistoryData", customerstatus, salaried, covertype, recommendationstrength)
+    if cursor.rowcount > 0 :
+        return redirect(url_for(''))
+    else :
+        return str('Not a valid input')
+
+
+@app.route("PolicyRating")
+def PolicyRating(customerstatus, salaried, covertype, recommendationstrength):
+    cursor = connection.cursor("exec PolicyRating", customerstatus, salaried, covertype,
+                               recommendationstrength)
+
+    return cursor
 
 
 if __name__ == "__main__":
