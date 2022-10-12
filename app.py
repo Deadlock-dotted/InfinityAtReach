@@ -2,9 +2,10 @@ import io
 
 from numpy.compat import basestring
 
+from Models import HomeInsuranceSuggestion
 from Models.GlobalConstants import Create_New_Policy, Policy_Suggestion, Basic_Insurance_Details, Descriptive_Statistics
 from chatbot import chatbot
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -16,6 +17,8 @@ from functools import update_wrapper
 from flask_cors import CORS, cross_origin
 import pypyodbc
 
+from Models.HomeInsuranceSuggestion import suggestion
+
 app = Flask(__name__)
 # app.static_folder = 'static'
 
@@ -26,7 +29,12 @@ CoverType = 'Structure & Content'
 Tenure = 10
 OutParam = ''
 country = 'India'
-data = pd.read_excel('C:/Users/suhil.roshan/Downloads/ExportExcel (1).xlsx')
+PremiumAmount = 500
+Industry = 'IT'
+
+Demographicaldata = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Demographical_Statistics_Data_Updated.xlsx')
+Designationdata = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Designation_Wise_Statistics_Data_Updated.xlsx')
+CustomerRetentionStatusData = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Customer_Retention_Status_Data.xlsx')
 
 
 def crossdomain(origin=None, methods=None, headers=None, max_age=21600,
@@ -111,34 +119,27 @@ def get_bot_response():
     return str(chatbot.get_response(usertext))
 
 
-@app.route("/database")
-def database():
+@app.route("/SuggestBestPolicy")
+@crossdomain(origin='*')
+def SuggestBestPolicy():
+    usertext = request.args.get('PremiumAmount')
+    PremiumAmount = usertext[0:3]
+    Tenure = usertext[6:8]
+    CoverType = usertext[11:32]
+    CustomerStatus = usertext[35:46]
+    Salaried = 1 if usertext[49:50] == 'Yes' else 0
+    country = usertext[53:58]
+    Industry = usertext[61:63]
+
     cursor = connection.cursor()
-    cursor.execute("SELECT * FROM demotable")
-    print(cursor)
-    print(cursor.rowcount)
-
-    for row in cursor:
-        print(row)
-
-    return str(row)
-
-
-@app.route("/database")
-def getuserinformation():
-    return str('hi')
-
-
-@app.route("/FindSimilarCustomers")
-def FindSimilarCustomers():
-    cursor = connection.cursor()
-    storedProcedure = ("EXEC FindSimilarCustomersFromHistoryData "
+    storedProcedure = ("EXEC SuggestPolicy "
+                       "@Premium=?,"
                        "@CustomerStatus=?,"
                        "@Salaried=?,"
                        "@CoverType=?,"
                        "@Tenure=?,"
                        "@RecommendationStrength=?")
-    params = (CustomerStatus, Salaried, CoverType, Tenure, OutParam)
+    params = (PremiumAmount, CustomerStatus, Salaried, CoverType, Tenure, OutParam)
 
     cursor.execute(storedProcedure, params)
 
@@ -147,41 +148,14 @@ def FindSimilarCustomers():
     for row in cursor:
         print(row)
 
-    if len(row) > 0:
-        return redirect(url_for('PolicyRating'))
-    else:
-        return str('Not a valid input')
+    return list(row)
 
-
-@app.route("/PolicyRating")
-def PolicyRating():
-    cursor = connection.cursor()
-    storedProcedure = ("EXEC PolicyRating "
-                       "@CustomerStatus=?,"
-                       "@Salaried=?,"
-                       "@CoverType=?,"
-                       "@Tenure=?")
-
-    params = (CustomerStatus, Salaried, CoverType, Tenure)
-
-    cursor.execute(storedProcedure, params)
-
-    for row in cursor:
-        print(row)
-
-    if len(row) > 0:
-        return row
-
-
-@app.route("/HousePricePrediction")
-def HousePricePrediction():
-    return str('')
-
-
-@app.route("/DescriptiveStatistics")
-def DescriptiveStatistics():
-    dataframe = pd.DataFrame(data)
-    dataframe2 = dataframe[dataframe['Country'] == country]
+# Completed for both India and USA
+@app.route("/DemoGraphicalStatistics")
+def DemoGraphicalStatistics():
+    requestedCounty = request.args.get('country')
+    dataframe = pd.DataFrame(Demographicaldata)
+    dataframe2 = dataframe[dataframe['Country'] == requestedCounty]
 
     plt.figure(figsize=(10, 8))
     plt.xticks(rotation='vertical')
@@ -190,6 +164,77 @@ def DescriptiveStatistics():
 
     # plt.show(), plt.savefig was not working, getting the typeerror
     # returning visualisation is 200 status but preview is not seen in UI
+
+    # Converting to bytes -- Working perfectly
+    bytes_image = io.BytesIO()
+    plt.savefig(bytes_image, format='png')
+    bytes_image.seek(0)
+
+    return send_file(bytes_image, mimetype='image/png')
+
+
+# Completed for Designation IT alone
+@app.route("/Designationstatistics")
+def Designationstatistics():
+    requestedIndustry = request.args.get('industry')
+    dataframe = pd.DataFrame(Designationdata)
+    dataframe2 = dataframe[dataframe['Industry'] == requestedIndustry]
+
+    plt.figure(figsize=(10, 8))
+    plt.xticks(rotation='vertical')
+
+    visualisation = sns.barplot(x=dataframe2['Designation'], y=dataframe2['BeenCustomer'])
+
+    # Converting to bytes -- Working perfectly
+    bytes_image = io.BytesIO()
+    plt.savefig(bytes_image, format='png')
+    bytes_image.seek(0)
+
+    return send_file(bytes_image, mimetype='image/png')
+
+
+@app.route("/GenderWiseStatistics")
+def GenderWiseStatistics():
+    dataframe = pd.DataFrame(Designationdata)
+    dataframe2 = dataframe[(dataframe['Industry'] == Industry) & (dataframe['Country'] == country)]
+
+    plt.figure(figsize=(10, 8))
+    plt.xticks(rotation='vertical')
+
+    visualisation = sns.countplot(x=dataframe2['Gender'])
+
+    # Converting to bytes -- Working perfectly
+    bytes_image = io.BytesIO()
+    plt.savefig(bytes_image, format='png')
+    bytes_image.seek(0)
+
+    return send_file(bytes_image, mimetype='image/png')
+
+
+@app.route("/SalariedWiseStatistics")
+def SalariedWiseStatistics():
+    dataframe = pd.DataFrame(Designationdata)
+    dataframe2 = dataframe[(dataframe['Industry'] == Industry) & (dataframe['Country'] == country)]
+
+    plt.figure(figsize=(10, 8))
+    plt.xticks(rotation='vertical')
+
+    visualisation = sns.countplot(x=dataframe2['Salaried'])
+
+    # Converting to bytes -- Working perfectly
+    bytes_image = io.BytesIO()
+    plt.savefig(bytes_image, format='png')
+    bytes_image.seek(0)
+
+    return send_file(bytes_image, mimetype='image/png')
+
+
+@app.route("/CustomerRetentionStatus")
+def CustomerRetentionStatus():
+    plt.figure(figsize=(10, 8))
+    plt.xticks(rotation='vertical')
+
+    visualisation = sns.countplot(x=CustomerRetentionStatusData['Been Customer'])
 
     # Converting to bytes -- Working perfectly
     bytes_image = io.BytesIO()
