@@ -1,4 +1,6 @@
 import io
+import json
+from random import random
 
 from numpy.compat import basestring
 
@@ -31,10 +33,14 @@ OutParam = ''
 country = 'India'
 PremiumAmount = 500
 Industry = 'IT'
+Email = 'customer@gmail.com'
+Phone = '7293423422'
 
 Demographicaldata = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Demographical_Statistics_Data_Updated.xlsx')
-Designationdata = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Designation_Wise_Statistics_Data_Updated.xlsx')
-CustomerRetentionStatusData = pd.read_excel('C:/Users/suhil.roshan/Documents/Data_Hub/Customer_Retention_Status_Data.xlsx')
+Designationdata = pd.read_excel(
+    'C:/Users/suhil.roshan/Documents/Data_Hub/Designation_Wise_Statistics_Data_Updated.xlsx')
+CustomerRetentionStatusData = pd.read_excel(
+    'C:/Users/suhil.roshan/Documents/Data_Hub/Customer_Retention_Status_Data.xlsx')
 
 
 def crossdomain(origin=None, methods=None, headers=None, max_age=21600,
@@ -103,20 +109,12 @@ def home():
 @crossdomain(origin='*')
 def get_bot_response():
     usertext = request.args.get('msg')
-    if usertext == Create_New_Policy:
-        return redirect(url_for('database'))
-    if usertext == Policy_Suggestion:
-        return redirect(url_for('FindSimilarCustomers', CustomerStatus=CustomerStatus,
-                                Salaried=Salaried,
-                                CoverType=CoverType,
-                                Tenure=Tenure))
-    if usertext == Descriptive_Statistics:
-        return redirect(url_for('DescriptiveStatistics'))
-    if usertext == Basic_Insurance_Details:
-        return redirect(url_for('needtodo'))
-    if usertext == Basic_Insurance_Details:
-        return redirect(url_for('needtodo'))
-    return str(chatbot.get_response(usertext))
+    # botresponse = jsonify(chatbot.get_response(usertext))
+
+    # botresponse = json.dumps({'response': chatbot.get_response(usertext)})
+
+    botresponse = chatbot.get_response(usertext)
+    return str(botresponse)
 
 
 @app.route("/SuggestBestPolicy")
@@ -127,9 +125,9 @@ def SuggestBestPolicy():
     Tenure = usertext[6:8]
     CoverType = usertext[11:32]
     CustomerStatus = usertext[35:46]
-    Salaried = 1 if usertext[49:50] == 'Yes' else 0
-    country = usertext[53:58]
-    Industry = usertext[61:63]
+    Salaried = 1 if usertext[49:52] == 'Yes' else 0
+    country = usertext[55:60]
+    Industry = usertext[63:65]
 
     cursor = connection.cursor()
     storedProcedure = ("EXEC SuggestPolicy "
@@ -143,15 +141,16 @@ def SuggestBestPolicy():
 
     cursor.execute(storedProcedure, params)
 
-    print(OutParam)
+    records = cursor.fetchall()
 
-    for row in cursor:
-        print(row)
+    cursor.close()
 
-    return list(row)
+    return records
+
 
 # Completed for both India and USA
 @app.route("/DemoGraphicalStatistics")
+@crossdomain(origin='*')
 def DemoGraphicalStatistics():
     requestedCounty = request.args.get('country')
     dataframe = pd.DataFrame(Demographicaldata)
@@ -175,12 +174,13 @@ def DemoGraphicalStatistics():
 
 # Completed for Designation IT alone
 @app.route("/Designationstatistics")
+@crossdomain(origin='*')
 def Designationstatistics():
     requestedIndustry = request.args.get('industry')
     dataframe = pd.DataFrame(Designationdata)
     dataframe2 = dataframe[dataframe['Industry'] == requestedIndustry]
 
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(10, 16))
     plt.xticks(rotation='vertical')
 
     visualisation = sns.barplot(x=dataframe2['Designation'], y=dataframe2['BeenCustomer'])
@@ -194,6 +194,7 @@ def Designationstatistics():
 
 
 @app.route("/GenderWiseStatistics")
+@crossdomain(origin='*')
 def GenderWiseStatistics():
     dataframe = pd.DataFrame(Designationdata)
     dataframe2 = dataframe[(dataframe['Industry'] == Industry) & (dataframe['Country'] == country)]
@@ -212,6 +213,7 @@ def GenderWiseStatistics():
 
 
 @app.route("/SalariedWiseStatistics")
+@crossdomain(origin='*')
 def SalariedWiseStatistics():
     dataframe = pd.DataFrame(Designationdata)
     dataframe2 = dataframe[(dataframe['Industry'] == Industry) & (dataframe['Country'] == country)]
@@ -230,6 +232,7 @@ def SalariedWiseStatistics():
 
 
 @app.route("/CustomerRetentionStatus")
+@crossdomain(origin='*')
 def CustomerRetentionStatus():
     plt.figure(figsize=(10, 8))
     plt.xticks(rotation='vertical')
@@ -242,6 +245,24 @@ def CustomerRetentionStatus():
     bytes_image.seek(0)
 
     return send_file(bytes_image, mimetype='image/png')
+
+
+@app.route("/RegisterCustomer")
+@crossdomain(origin='*')
+def RegisterCustomer():
+    cursor = connection.cursor()
+    storedProcedure = ("EXEC InsertRegisteredUser "
+                       "@Name=?,"
+                       "@Email=?,"
+                       "@PhoneNumber=?")
+    userName = request.args.get('name')
+    params = (userName, Email, Phone)
+
+    cursor.execute(storedProcedure, params)
+
+    randomnumber = np.random.randint(200, 587)
+
+    return str(randomnumber)
 
 
 if __name__ == "__main__":
