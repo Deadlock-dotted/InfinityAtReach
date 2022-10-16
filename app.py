@@ -6,7 +6,7 @@ from numpy.compat import basestring
 
 from Models import HomeInsuranceSuggestion
 from Models.GlobalConstants import Create_New_Policy, Policy_Suggestion, Basic_Insurance_Details, Descriptive_Statistics
-from chatbot import chatbot
+# from chatbot import chatbot
 from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
 import pandas as pd
 import numpy as np
@@ -105,16 +105,16 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/get")
-@crossdomain(origin='*')
-def get_bot_response():
-    usertext = request.args.get('msg')
-    # botresponse = jsonify(chatbot.get_response(usertext))
-
-    # botresponse = json.dumps({'response': chatbot.get_response(usertext)})
-
-    botresponse = chatbot.get_response(usertext)
-    return str(botresponse)
+# @app.route("/get")
+# @crossdomain(origin='*')
+# def get_bot_response():
+#     usertext = request.args.get('msg')
+#     # botresponse = jsonify(chatbot.get_response(usertext))
+#
+#     # botresponse = json.dumps({'response': chatbot.get_response(usertext)})
+#
+#     botresponse = chatbot.get_response(usertext)
+#     return str(botresponse)
 
 
 @app.route("/SuggestBestPolicy")
